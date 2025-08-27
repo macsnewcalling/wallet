@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NovaWallet — Onboarding Demo</title>
+
+  <!-- Tailwind Play CDN (no build required, fine for demos) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React + ReactDOM (UMD builds) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- Babel for JSX in browser (demo only) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* small visual polish for file-input previews */
+    .img-preview { max-width: 100%; max-height: 140px; object-fit: contain; border-radius: 8px; border: 1px dashed #e6e6e6; padding: 4px; background: #fff; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-indigo-50 min-h-screen">
+  <div id="root" class="p-6"></div>
+
+  <script type="text/babel">
+  const { useState, useEffect, useMemo } = React;
+
+  /*******************************
+   * Helper: US states + example cities
+   *******************************/
+  const US_STATES = [
+    "California","Texas","Florida","New York","Illinois","Pennsylvania","Ohio","Georgia","North Carolina","Michigan",
+    // add more as needed...
+  ];
+  const CITIES_BY_STATE = {
+    "California": ["Los Angeles","San Diego","San Francisco","Sacramento","Other"],
+    "Texas": ["Houston","San Antonio","Dallas","Austin","Other"],
+    "Florida": ["Miami","Orlando","Tampa","Jacksonville","Other"],
+    "New York": ["New York City","Buffalo","Rochester","Syracuse","Other"],
+    "Illinois": ["Chicago","Aurora","Naperville","Other"],
+    "Pennsylvania": ["Philadelphia","Pittsburgh","Other"],
+    "Ohio": ["Columbus","Cleveland","Cincinnati","Other"],
+    "Georgia": ["Atlanta","Savannah","Other"],
+    "North Carolina": ["Charlotte","Raleigh","Greensboro","Other"],
+    "Michigan": ["Detroit","Grand Rapids","Ann Arbor","Other"],
+  };
+
+  /*******************************
+   * Local storage utilities
+   *******************************/
+  const STORAGE_KEY = "nova_wallet_demo_users_v1";
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  function saveUsers(users) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+  }
+
+  /*******************************
+   * Root App
+   *******************************/
+  function App(){
+    const [route, setRoute] = useState("home"); // home, signup, login, dashboard
+    const [authedEmail, setAuthedEmail] = useState(sessionStorage.getItem("nova_authed_email") || null);
+    const [user, setUser] = useState(null);
+
+    useEffect(()=>{
+      if(authedEmail){
+        const users = loadUsers();
+        const found = users.find(u => u.contact.email === authedEmail);
+        if(found) setUser(found);
+      } else {
+        setUser(null);
+      }
+    }, [authedEmail]);
+
+    function handleLoginSuccess(u){
+      sessionStorage.setItem("nova_authed_email", u.contact.email);
+      setAuthedEmail(u.contact.email);
+      setUser(u);
+      setRoute("dashboard");
+    }
+
+    function handleLogout(){
+      sessionStorage.removeItem("nova_authed_email");
+      setAuthedEmail(null);
+      setUser(null);
+      setRoute("home");
+    }
+
+    return (
+      <div className="max-w-6xl mx-auto">
+        <header className="flex items-center justify-between py-6">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-indigo-600 shadow" />
+            <div>
+              <h1 className="text-2xl font-extrabold">NovaWallet</h1>
+              <p className="text-sm text-slate-600">Demo onboarding — formal US-style English</p>
+            </div>
+          </div>
+          <nav className="flex items-center gap-2">
+            <button onClick={()=>{ setRoute("home"); }} className="px-3 py-2 rounded-lg bg-white border">Home</button>
+            {!user && <button onClick={()=>setRoute("login")} className="px-3 py-2 rounded-lg bg-indigo-600 text-white">Log In</button>}
+            {!user && <button onClick={()=>setRoute("signup")} className="px-3 py-2 rounded-lg bg-emerald-600 text-white">Sign Up</button>}
+            {user && <button onClick={()=>setRoute("dashboard")} className="px-3 py-2 rounded-lg bg-white border">Dashboard</button>}
+            {user && <button onClick={handleLogout} className="px-3 py-2 rounded-lg bg-rose-600 text-white">Log Out</button>}
+          </nav>
+        </header>
+
+        <main>
+          { route === "home" && <Home onSignup={()=>setRoute("signup")} onLogin={()=>setRoute("login")} /> }
+          { route === "signup" && <SignUp onComplete={(u)=>{ handleLoginSuccess(u); }} onCancel={()=>setRoute("home")} /> }
+          { route === "login" && <Login onCancel={()=>setRoute("home")} onAuthed={handleLoginSuccess} /> }
+          { route === "dashboard" && user && <Dashboard user={user} /> }
+        </main>
+
+        <footer className="text-center text-xs text-slate-500 py-8">Demo only — do not use real sensitive data here.</footer>
+      </div>
+    );
+  }
+
+  /*******************************
+   * Home
+   *******************************/
+  function Home({ onSignup, onLogin }){
+    return (
+      <div className="grid md:grid-cols-2 gap-6">
+        <section className="bg-white p-6 rounded-2xl shadow">
+          <h2 className="text-2xl font-bold mb-2">Welcome to NovaWallet</h2>
+          <p className="text-slate-600 mb-4">
+            This demo implements a full, multi-step onboarding flow. Create an account, use the same credentials to log in,
+            and view your details on the dashboard. All data is stored locally in your browser.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onSignup} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Get Started</button>
+            <button onClick={onLogin} className="px-4 py-2 rounded-lg border">I already have an account</button>
+          </div>
+        </section>
+
+        <section className="bg-white p-6 rounded-2xl shadow">
+          <h3 className="text-lg font-semibold mb-3">What to expect</h3>
+          <ul className="list-disc ml-5 space-y-1 text-slate-700">
+            <li>Multi-step sign up: Personal → Contact → Address → Account Type → Prank ID Verification → Account Number → Credentials → Device registration → Final scanning</li>
+            <li>Account types and interest rates are demo values: Victim (11.5%), Suspect (3.5%), Perpetrator (0%).</li>
+            <li>Prank placeholders used for document & token fields to avoid collecting sensitive data.</li>
+          </ul>
+        </section>
+      </div>
+    );
+  }
+
+  /*******************************
+   * Login
+   *******************************/
+  function Login({ onCancel, onAuthed }){
+    const [id, setId] = useState(""); // email or username
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+
+    function submit(e){
+      e.preventDefault();
+      setError("");
+      const users = loadUsers();
+      const user = users.find(u => u.contact.email === id || u.credentials.username === id);
+      if(!user) { setError("No account found for that email/username."); return; }
+      if(user.credentials.password !== password){ setError("Incorrect password."); return; }
+      onAuthed(user);
+    }
+
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="bg-white p-6 rounded-2xl shadow">
+          <h2 className="text-xl font-bold mb-3">Log In</h2>
+          <form onSubmit={submit} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Email or Username</label>
+              <input className="w-full mt-1 p-2 rounded-lg border" value={id} onChange={e=>setId(e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Password</label>
+              <input type="password" className="w-full mt-1 p-2 rounded-lg border" value={password} onChange={e=>setPassword(e.target.value)} required />
+            </div>
+            { error && <div className="text-rose-600 text-sm">{error}</div> }
+            <div className="flex gap-2 pt-2">
+              <button type="submit" className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Log In</button>
+              <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  /*******************************
+   * SignUp (multi-step)
+   *******************************/
+  function SignUp({ onComplete, onCancel }){
+    const [step, setStep] = useState(0);
+
+    // Data
+    const [personal, setPersonal] = useState({ firstName:"", lastName:"", tsn:"" });
+    const [contact, setContact] = useState({ email:"", altEmail:"", phone:"", altPhone:"" });
+    const [address, setAddress] = useState({ state:"", city:"", zip:"", fullAddress:"" });
+    const [accountType, setAccountType] = useState("Victim"); // Victim, Suspect, Perpetrator
+    // Prank ID verification
+    const [prankDocType, setPrankDocType] = useState("Prank Passport"); // Prank Passport / Prank SSN / Prank Driver's License
+    const [prankFrontFile, setPrankFrontFile] = useState(null);
+    const [prankBackFile, setPrankBackFile] = useState(null);
+    const [connectDelayDone, setConnectDelayDone] = useState(false);
+
+    // Account number selection: show a few 12-digit options (with 6-digit "sequence" as described)
+    const [chosenAccountNumber, setChosenAccountNumber] = useState("");
+    // credentials
+    const [credentials, setCredentials] = useState({ username:"", password:"", confirm:"" });
+
+    // device registration
+    const [deviceCount, setDeviceCount] = useState(1);
+    const DEVICE_OPTIONS = ["Computer","Laptop","Desktop","Cell Phone","Tablet","Other"];
+    const [selectedDevices, setSelectedDevices] = useState([]);
+    const [deviceIp, setDeviceIp] = useState("");
+    const [securityType, setSecurityType] = useState("regular"); // regular, pro, pro+
+
+    // Token ID (Prank Token ID)
+    const [prankToken, setPrankToken] = useState("");
+    const [tokenValidationResult, setTokenValidationResult] = useState(null);
+
+    // final scanning timers
+    const [twoMinScan, setTwoMinScan] = useState(false);
+    const [threeMinScan, setThreeMinScan] = useState(false);
+    const [finalMessageShown, setFinalMessageShown] = useState(false);
+
+    // dynamic cities
+    const cities = useMemo(()=> CITIES_BY_STATE[address.state] || ["Other"], [address.state]);
+
+    // utility: generate a few candidate 12-digit account numbers where one contains a chosen 6-digit sequence
+    function generateAccountOptions(sequence6){
+      const pad = (s,n)=> s.toString().padStart(n,"0");
+      const seq = String(sequence6).padStart(6,"0");
+      const opts = [];
+      for(let i=0;i<6;i++){
+        const prefix = Math.floor(Math.random()*999999).toString().padStart(6,"0");
+        const candidate = prefix + seq; // 12 digits
+        opts.push(candidate);
+      }
+      return opts;
+    }
+
+    // handle front/back preview
+    function handleFileInput(e, which){
+      const f = e.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        if(which === "front") setPrankFrontFile(ev.target.result);
+        else setPrankBackFile(ev.target.result);
+      };
+      reader.readAsDataURL(f);
+    }
+
+    // Step: ID verification → on clicking Next we start 30s connect delay
+    function handleStartConnectDelay(){
+      setConnectDelayDone(false);
+      setTokenValidationResult(null);
+      setTimeout(()=> setConnectDelayDone(true), 30000); // 30 seconds
+    }
+
+    // Token check (special behavior per your request)
+    function validateToken(){
+      if(prankToken.trim() === "3999041"){
+        setTokenValidationResult({
+          status: "ok",
+          message: "Thanks for the confirmation — this prank case has been assigned to Officer Eric Charles Monti. Badge ID: EMCFTC1978"
+        });
+      } else {
+        setTokenValidationResult({ status: "invalid", message: "Invalid token." });
+      }
+    }
+
+    // After Submit: simulate 2-minute scanning then proceed to device registration and final scans
+    function handleFinalSubmit(e){
+      e.preventDefault();
+      // basic validation
+      if(credentials.password !== credentials.confirm){ alert("Password and confirmation do not match."); return; }
+      if(!chosenAccountNumber) { alert("Please choose an account number."); return; }
+
+      // simulate 2-minute scanning (we'll show a shorter visible countdown for demo friendliness but actually implement 2 minutes)
+      setTwoMinScan(true);
+      setTimeout(()=>{
+        setTwoMinScan(false);
+        // proceed to device registration step (we'll keep step index to next)
+        setStep(s => s + 1);
+      }, 120000); // 120,000ms = 2 minutes
+    }
+
+    // After device registration and token etc, final 3-minute scan
+    function startFinal3MinScanAndFinish(){
+      setThreeMinScan(true);
+      setFinalMessageShown(false);
+      setTimeout(()=>{
+        setThreeMinScan(false);
+        setFinalMessageShown(true);
+        // After final message show, automatically "redirect" home after 60 seconds (as requested)
+        setTimeout(()=>{
+          // create & save user
+          const users = loadUsers();
+          // check duplicate email/username
+          if(users.some(u => u.contact.email === contact.email)){
+            alert("An account with that email already exists. We'll redirect you to the login page.");
+            window.location.reload();
+            return;
+          }
+          if(users.some(u => u.credentials.username === credentials.username)){
+            alert("Username already taken. Please sign up again with a different username.");
+            window.location.reload();
+            return;
+          }
+          const newUser = {
+            personal, contact, address,
+            account: { type: accountType, interestRate: accountType === "Victim" ? "11.5%" : accountType === "Suspect" ? "3.5%" : "0%" },
+            verification: { prankDocType, prankFrontFile, prankBackFile, prankToken },
+            accountNumber: chosenAccountNumber,
+            credentials,
+            devices: { deviceCount, selectedDevices, deviceIp, securityType },
+            createdAt: new Date().toISOString()
+          };
+          users.push(newUser);
+          saveUsers(users);
+          // final redirect: go to home (user can login)
+          alert("Your account has been queued for manual verification and will be active after review (1-4 hours). You will now be redirected to Home.");
+          window.location.href = window.location.href; // reload demo -> home
+        }, 60000); // 60 sec until redirect to home
+      }, 180000); // 180s = 3 minutes
+    }
+
+    // Step UI components
+    function StepPersonal(){
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Personal Information</h3>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium">First name</label>
+              <input value={personal.firstName} onChange={e=>setPersonal({...personal, firstName:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Last name</label>
+              <input value={personal.lastName} onChange={e=>setPersonal({...personal, lastName:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">TSN Number</label>
+            <input value={personal.tsn} onChange={e=>setPersonal({...personal, tsn:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" placeholder="Enter TSN number" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onCancel} className="px-4 py-2 rounded-lg border">Cancel</button>
+            <button onClick={()=>setStep(1)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Next</button>
+          </div>
+        </div>
+      );
+    }
+
+    function StepContact(){
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Contact Information</h3>
+          <div>
+            <label className="block text-sm font-medium">Email</label>
+            <input value={contact.email} onChange={e=>setContact({...contact, email:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Alternate Email</label>
+            <input value={contact.altEmail} onChange={e=>setContact({...contact, altEmail:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" />
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium">Phone</label>
+              <input value={contact.phone} onChange={e=>setContact({...contact, phone:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Alternate Phone</label>
+              <input value={contact.altPhone} onChange={e=>setContact({...contact, altPhone:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={()=>setStep(0)} className="px-4 py-2 rounded-lg border">Back</button>
+            <button onClick={()=>setStep(2)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Next</button>
+          </div>
+        </div>
+      );
+    }
+
+    function StepAddress(){
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Address Confirmation</h3>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium">State (USA)</label>
+              <select value={address.state} onChange={e=>setAddress({...address, state:e.target.value, city:""})} className="w-full mt-1 p-2 rounded-lg border">
+                <option value="">Select a state</option>
+                {US_STATES.map(s=> <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium">City</label>
+              <select value={address.city} onChange={e=>setAddress({...address, city:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" disabled={!address.state}>
+                <option value="">{ address.state ? "Select a city" : "Select state first" }</option>
+                {address.state && cities.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">ZIP code</label>
+            <input value={address.zip} onChange={e=>setAddress({...address, zip:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Full address</label>
+            <textarea value={address.fullAddress} onChange={e=>setAddress({...address, fullAddress:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" rows="3"></textarea>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={()=>setStep(1)} className="px-4 py-2 rounded-lg border">Back</button>
+            <button onClick={()=>setStep(3)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Next</button>
+          </div>
+        </div>
+      );
+    }
+
+    function StepAccountType(){
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Choose Account Type</h3>
+          <p className="text-sm text-slate-600">Select one of the following account types. Interest rates shown are sample demo values.</p>
+          <div className="grid md:grid-cols-3 gap-3 mt-2">
+            <div className={`p-4 rounded-xl border ${accountType==="Victim" ? "border-indigo-600 ring-2 ring-indigo-50": "border-slate-200"}`}>
+              <div className="flex items-center justify-between">
+                <div><strong>Victim</strong></div>
+                <div className="text-sm text-slate-600">11.5%</div>
+              </div>
+              <p className="text-xs text-slate-600 mt-2">Standard daily wallet.</p>
+              <div className="mt-3">
+                <button onClick={()=>setAccountType("Victim")} className="px-3 py-1 rounded bg-indigo-600 text-white">Select</button>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-xl border ${accountType==="Suspect" ? "border-indigo-600 ring-2 ring-indigo-50": "border-slate-200"}`}>
+              <div className="flex items-center justify-between">
+                <div><strong>Suspect</strong></div>
+                <div className="text-sm text-slate-600">3.5%</div>
+              </div>
+              <p className="text-xs text-slate-600 mt-2">Saver-style account (demo).</p>
+              <div className="mt-3">
+                <button onClick={()=>setAccountType("Suspect")} className="px-3 py-1 rounded bg-indigo-600 text-white">Select</button>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-xl border ${accountType==="Perpetrator" ? "border-indigo-600 ring-2 ring-indigo-50": "border-slate-200"}`}>
+              <div className="flex items-center justify-between">
+                <div><strong>Perpetrator</strong></div>
+                <div className="text-sm text-slate-600">0%</div>
+              </div>
+              <p className="text-xs text-slate-600 mt-2">Basic account (demo).</p>
+              <div className="mt-3">
+                <button onClick={()=>setAccountType("Perpetrator")} className="px-3 py-1 rounded bg-indigo-600 text-white">Select</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button onClick={()=>setStep(2)} className="px-4 py-2 rounded-lg border">Back</button>
+            <button onClick={()=>setStep(4)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Next</button>
+          </div>
+        </div>
+      );
+    }
+
+    function StepPrankID(){
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Prank ID Verification</h3>
+          <p className="text-sm text-slate-600">Select a Prank Document Type and upload front/back images (demo-only).</p>
+
+          <div>
+            <label className="block text-sm font-medium">Document Type</label>
+            <select value={prankDocType} onChange={e=>setPrankDocType(e.target.value)} className="w-full mt-1 p-2 rounded-lg border">
+              <option>Prank Passport</option>
+              <option>Prank SSN</option>
+              <option>Prank Driver's License</option>
+            </select>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium">Upload front (image)</label>
+              <input type="file" accept="image/*" onChange={(e)=>handleFileInput(e,"front")} className="mt-2" />
+              {prankFrontFile && <img src={prankFrontFile} alt="front" className="img-preview mt-2" />}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Upload back (image)</label>
+              <input type="file" accept="image/*" onChange={(e)=>handleFileInput(e,"back")} className="mt-2" />
+              {prankBackFile && <img src={prankBackFile} alt="back" className="img-preview mt-2" />}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-slate-600">When you proceed we will attempt to connect (demo simulated 30s connection).</p>
+            <button onClick={handleStartConnectDelay} className="mt-2 px-3 py-1 rounded bg-indigo-600 text-white">Start Connection (30s)</button>
+            { !connectDelayDone && <p className="text-sm text-slate-500 mt-2">Status: connecting to the verification network... (30s simulated)</p> }
+            { connectDelayDone && <p className="text-sm text-green-600 mt-2">Connection established — you may proceed.</p> }
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Prank Token ID</label>
+            <input value={prankToken} onChange={e=>setPrankToken(e.target.value)} className="w-full mt-1 p-2 rounded-lg border" placeholder="Enter Prank Token ID" />
+            <p className="text-xs text-slate-500 mt-1">Note: only the registered prank officer can generate the Prank Token ID for account openings. (demo)</p>
+            <div className="flex gap-2 mt-2">
+              <button onClick={validateToken} className="px-3 py-1 rounded bg-indigo-600 text-white">Validate Token</button>
+              <button onClick={()=>setTokenValidationResult(null)} className="px-3 py-1 rounded border">Reset</button>
+            </div>
+            { tokenValidationResult && (
+              <div className={`mt-2 text-sm ${tokenValidationResult.status === "ok" ? "text-green-700":"text-rose-600"}`}>
+                {tokenValidationResult.message}
+              </div>
+            ) }
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={()=>setStep(3)} className="px-4 py-2 rounded-lg border">Back</button>
+            <button onClick={()=>{ if(!connectDelayDone){ alert("Please complete the 30s connection first."); return; } setStep(5); }} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Next</button>
+          </div>
+        </div>
+      );
+    }
+
+    // account number step (step 5)
+    function StepAccountNumber(){
+      const [sequence6, setSequence6] = useState("");
+      const [options, setOptions] = useState([]);
+      function generate(){
+        if(!sequence6 || isNaN(Number(sequence6)) || String(sequence6).length > 6){
+          alert("Enter a numeric 6-digit sequence (e.g., 123456).");
+          return;
+        }
+        setOptions(generateAccountOptions(sequence6));
+      }
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Choose an Account Number</h3>
+          <p className="text-sm text-slate-600">Enter a preferred 6-digit sequence. We will show several 12-digit account numbers incorporating that sequence (demo).</p>
+          <div className="flex gap-2">
+            <input value={sequence6} onChange={e=>setSequence6(e.target.value)} className="p-2 rounded-lg border" placeholder="6-digit sequence" />
+            <button onClick={generate} className="px-3 py-1 rounded bg-indigo-600 text-white">Generate</button>
+          </div>
+
+          { options.length > 0 && (
+            <div>
+              <p className="text-sm text-slate-600">Select one:</p>
+              <div className="grid md:grid-cols-2 gap-2 mt-2">
+                {options.map(opt => (
+                  <div key={opt} className={`p-3 rounded-lg border ${chosenAccountNumber === opt ? "border-indigo-600 bg-indigo-50" : "border-slate-200"}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="font-mono">{opt}</div>
+                      <button onClick={()=>setChosenAccountNumber(opt)} className="px-2 py-1 rounded bg-indigo-600 text-white">Choose</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) }
+
+          <div className="flex gap-2">
+            <button onClick={()=>setStep(4)} className="px-4 py-2 rounded-lg border">Back</button>
+            <button onClick={()=>setStep(6)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Next</button>
+          </div>
+        </div>
+      );
+    }
+
+    // Step 6: Credentials (username + password) and final Submit triggers 2-minute scan
+    function StepCredentials(){
+      return (
+        <form onSubmit={handleFinalSubmit} className="space-y-4">
+          <h3 className="text-lg font-semibold">Choose Credentials</h3>
+          <div>
+            <label className="block text-sm font-medium">Username</label>
+            <input value={credentials.username} onChange={e=>setCredentials({...credentials, username:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" required />
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium">Password</label>
+              <input type="password" value={credentials.password} onChange={e=>setCredentials({...credentials, password:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Confirm Password</label>
+              <input type="password" value={credentials.confirm} onChange={e=>setCredentials({...credentials, confirm:e.target.value})} className="w-full mt-1 p-2 rounded-lg border" required />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-slate-500">By submitting you agree to the demo Terms & Privacy. (This is a client-side demo.)</p>
+          </div>
+
+          <div className="flex gap-2">
+            <button type="button" onClick={()=>setStep(5)} className="px-4 py-2 rounded-lg border">Back</button>
+            <button type="submit" className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Submit</button>
+          </div>
+        </form>
+      );
+    }
+
+    // Device registration (after step 6 and the 2-min scan finishes we moved to step index+1)
+    function StepDeviceRegistration(){
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Register Device(s)</h3>
+          <div>
+            <label className="block text-sm font-medium">How many devices will you register for this account?</label>
+            <select value={deviceCount} onChange={e=>setDeviceCount(Number(e.target.value))} className="mt-1 p-2 rounded-lg border">
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+              <option value={5}>5</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Select devices (you may select multiple)</label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {DEVICE_OPTIONS.map(opt => (
+                <label key={opt} className={`px-3 py-1 rounded-lg border ${selectedDevices.includes(opt) ? "bg-indigo-50 border-indigo-400" : "bg-white"}`}>
+                  <input type="checkbox" checked={selectedDevices.includes(opt)} onChange={e=>{
+                    const copy = [...selectedDevices];
+                    if(e.target.checked) copy.push(opt); else {
+                      const idx = copy.indexOf(opt); if(idx>=0) copy.splice(idx,1);
+                    }
+                    setSelectedDevices(copy);
+                  }} className="mr-2" />
+                  {opt}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">Tip: choose up to your device count above.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Register your device IP address</label>
+            <input value={deviceIp} onChange={e=>setDeviceIp(e.target.value)} className="w-full mt-1 p-2 rounded-lg border" placeholder="e.g., 203.0.113.5 (demo)" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Select security type</label>
+            <select value={securityType} onChange={e=>setSecurityType(e.target.value)} className="w-full mt-1 p-2 rounded-lg border">
+              <option value="regular">regular</option>
+              <option value="pro">pro</option>
+              <option value="pro+">pro+</option>
+            </select>
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={()=>setStep(6)} className="px-4 py-2 rounded-lg border">Back</button>
+            <button onClick={()=>setStep(8)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">Next</button>
+          </div>
+        </div>
+      );
+    }
+
+    // final confirmation step (shows 3-minute scan)
+    function StepFinalConfirmation(){
+      return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Final Confirmation</h3>
+          <p className="text-sm text-slate-600">We are now scanning the details you have submitted. This is a simulated 3-minute scan (demo).</p>
+
+          <div>
+            <button onClick={startFinal3MinScanAndFinish} className="px-3 py-2 rounded bg-indigo-600 text-white">Start Final Scan (3 minutes)</button>
+          </div>
+
+          <div className="text-xs text-slate-500 mt-2">Once the final scan completes, your account will be queued for manual verification. This demo will then redirect to home.</div>
+        </div>
+      );
+    }
+
+    // Render: if twoMinScan true show scanning UI else show current step
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-white p-6 rounded-2xl shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Sign Up — Step {step + 1}</h2>
+            <div className="text-sm text-slate-500">Progress: {["Personal","Contact","Address","Account","Prank ID","Account Number","Credentials","(2-min scan)","Devices","Final Scan"][step] || "Review"}</div>
+          </div>
+
+          { twoMinScan ? (
+            <div className="p-4 rounded-lg border bg-yellow-50">
+              <p className="font-medium">We're scanning the documents you have submitted. (Simulated 2-minute scan — demo)</p>
+              <p className="mt-2 text-sm text-slate-600">Please wait...</p>
+              <Countdown seconds={120} />
+            </div>
+          ) : threeMinScan ? (
+            <div className="p-4 rounded-lg border bg-yellow-50">
+              <p className="font-medium">Final scanning in progress — we are scanning the details you submitted. (Simulated 3-minute scan)</p>
+              <Countdown seconds={180} />
+            </div>
+          ) : finalMessageShown ? (
+            <div className="p-4 rounded-lg border bg-green-50">
+              <p className="font-medium">Your account would be active after manual verification. It might take 1–4 hours. Thank you.</p>
+              <p className="mt-2 text-sm text-slate-600">You will be redirected to Home shortly.</p>
+            </div>
+          ) : (
+            <div>
+              { step === 0 && StepPersonal() }
+              { step === 1 && StepContact() }
+              { step === 2 && StepAddress() }
+              { step === 3 && StepAccountType() }
+              { step === 4 && StepPrankID() }
+              { step === 5 && StepAccountNumber() }
+              { step === 6 && StepCredentials() }
+              { step === 7 && /* placeholder for 2-min scan step - we trigger it via submit */ (<div className="p-4 text-sm text-slate-600">Processing... (You should not normally see this)</div>) }
+              { step === 8 && StepDeviceRegistration() }
+              { step === 9 && StepFinalConfirmation() }
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /*******************************
+   * Simple Countdown component
+   *******************************/
+  function Countdown({ seconds }){
+    const [left, setLeft] = useState(seconds);
+    useEffect(()=>{
+      setLeft(seconds);
+      const t = setInterval(()=> setLeft(l => {
+        if(l <= 1) { clearInterval(t); return 0; }
+        return l-1;
+      }), 1000);
+      return ()=> clearInterval(t);
+    }, [seconds]);
+
+    const mm = String(Math.floor(left/60)).padStart(2,"0");
+    const ss = String(left % 60).padStart(2,"0");
+    return <div className="mt-3 text-sm font-mono">{mm}:{ss}</div>
+  }
+
+  /*******************************
+   * Dashboard
+   *******************************/
+  function Dashboard({ user }){
+    return (
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow">
+          <h2 className="text-xl font-bold mb-2">Account Overview</h2>
+          <p className="text-slate-600 mb-3">Welcome, <strong>{user.personal.firstName} {user.personal.lastName}</strong></p>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="text-slate-500">Account Type</div><div className="font-medium">{user.account.type} ({user.account.interestRate})</div>
+            <div className="text-slate-500">Email</div><div className="font-medium">{user.contact.email}</div>
+            <div className="text-slate-500">Phone</div><div className="font-medium">{user.contact.phone}</div>
+            <div className="text-slate-500">Address</div><div className="font-medium">{user.address.fullAddress}, {user.address.city}, {user.address.state} {user.address.zip}</div>
+            <div className="text-slate-500">TSN</div><div className="font-medium">{user.personal.tsn}</div>
+            <div className="text-slate-500">Account Number</div><div className="font-medium">{user.accountNumber}</div>
+            <div className="text-slate-500">Username</div><div className="font-medium">{user.credentials.username}</div>
+            <div className="text-slate-500">Registered Devices</div><div className="font-medium">{(user.devices.selectedDevices || []).join(", ") || "None"}</div>
+            <div className="text-slate-500">Created</div><div className="font-medium">{new Date(user.createdAt).toLocaleString()}</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow">
+          <h3 className="text-lg font-semibold mb-2">Verification & Prank Document (demo)</h3>
+          <p className="text-sm text-slate-600">Prank Doc Type: {user.verification.prankDocType}</p>
+          <div className="grid grid-cols-1 gap-3 mt-3">
+            {user.verification.prankFrontFile ? <img src={user.verification.prankFrontFile} alt="front" className="img-preview" /> : <div className="text-xs text-slate-500">No front image</div>}
+            {user.verification.prankBackFile ? <img src={user.verification.prankBackFile} alt="back" className="img-preview" /> : <div className="text-xs text-slate-500">No back image</div>}
+          </div>
+
+          <div className="mt-4">
+            <h4 className="text-sm font-semibold">Next steps</h4>
+            <ul className="list-disc ml-5 text-sm text-slate-700 mt-1">
+              <li>For production, do not store passwords in plaintext — use hashed passwords on a secure backend.</li>
+              <li>Use real KYC / identity providers only when legally required and with explicit consent.</li>
+              <li>This demo uses prank placeholders; never submit real ID data here.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
